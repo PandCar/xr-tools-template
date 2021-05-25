@@ -10,16 +10,48 @@ namespace XrTools;
  */
 class Template {
 
+	/**
+	 * @var array
+	 */
 	private $parts = [];
 
-	private $config = [];
+	/**
+	 * @var array
+	 */
+	private $conf = [];
 
+	/**
+	 * @var Locale
+	 */
 	private $locale;
+	/**
+	 * @var Router
+	 */
 	private $router;
+	/**
+	 * @var Config
+	 */
+	private $config;
 
-	public function __construct(Locale $locale, Router $router){
+	/**
+	 * @var array
+	 */
+	private $addedFiles = [];
+
+	/**
+	 * Template constructor.
+	 * @param Locale $locale
+	 * @param Router $router
+	 * @param Config $config
+	 */
+	public function __construct(
+		Locale $locale, 
+		Router $router,
+		Config $config
+	){
 		$this->locale = $locale;
 		$this->router = $router;
+		$this->config = $config;
 	}
 
 	public function set($part, $value){
@@ -64,6 +96,36 @@ class Template {
 		return $this->parts[$part];		
 	}
 
+	/**
+	 * @param string $url
+	 */
+	function css(string $url)
+	{
+		$url = $this->staticPath($url, '/style/css/');
+
+		if (! $this->addedFiles($url)) {
+			return;
+		}
+
+		$this->push('head', '<link rel="stylesheet" type="text/css" href="'.$url.'">');
+	}
+
+	/**
+	 * @param string $url
+	 * @param bool $async
+	 * @param bool $top
+	 */
+	function js(string $url, bool $async = false, bool $top = true)
+	{
+		$url = $this->staticPath($url, '/style/js/');
+
+		if (! $this->addedFiles($url)) {
+			return;
+		}
+
+		$this->push($top ? 'head' : 'bottom', '<script src="'.$url.'" '.($async ? 'async' : '').'></script>');
+	}
+
 	public function setBatch(array $parts, $value){
 		foreach ($parts as $part) {
 			$this->parts[$part] = $value;
@@ -88,15 +150,21 @@ class Template {
 		}
 	}
 
-	public function config($key, $value = null){
+	/**
+	 * @param $key
+	 * @param null $value
+	 * @return mixed|void|null
+	 */
+	public function config($key, $value = null)
+	{
 		// write config
-		if(isset($value)){
-			$this->config[$key] = $value;
+		if (isset($value)) {
+			$this->conf[ $key ] = $value;
 			return;
 		}
 		// read config
 		else {
-			return $this->config[$key] ?? null;
+			return $this->conf[ $key ] ?? null;
 		}
 	}
 
@@ -161,4 +229,43 @@ class Template {
 		
 		return $rel_canonical;
 	}
+
+	/**
+	 * @param string $url
+	 * @param string $defaultPath
+	 * @return string
+	 */
+	private function staticPath(string $url, string $defaultPath): string
+	{
+		if (! substr_count($url, '//:'))
+		{
+			if (substr($url, 0, 1) != '/') {
+				$url = $defaultPath . $url;
+			}
+
+			$prefix = $this->config->get('cdn_prefix');
+
+			if ($prefix) {
+				$url = $prefix . $url;
+			}
+		}
+
+		return $url;
+	}
+
+	/**
+	 * @param string $url
+	 * @return bool
+	 */
+	private function addedFiles(string $url): bool
+	{
+		if (in_array($url, $this->addedFiles)) {
+			return false;
+		}
+
+		$this->addedFiles []= $url;
+
+		return true;
+	}
 }
+
